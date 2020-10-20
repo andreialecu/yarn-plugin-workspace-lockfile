@@ -30,19 +30,21 @@ const createLockfile = async (
   // Note: remember that new elements can be added in a set even while
   // iterating over it (because they're added at the end)
 
-  for (const workspace of requiredWorkspaces) {
-    for (const dependencyType of Manifest.hardDependencies) {
-      for (const descriptor of workspace.manifest
-        .getForScope(dependencyType)
-        .values()) {
-        const matchingWorkspace = project.tryWorkspaceByDescriptor(descriptor);
+  // DISABLED:
+  
+  // for (const workspace of requiredWorkspaces) {
+  //   for (const dependencyType of Manifest.hardDependencies) {
+  //     for (const descriptor of workspace.manifest
+  //       .getForScope(dependencyType)
+  //       .values()) {
+  //       const matchingWorkspace = project.tryWorkspaceByDescriptor(descriptor);
 
-        if (matchingWorkspace === null) continue;
+  //       if (matchingWorkspace === null) continue;
 
-        //requiredWorkspaces.add(matchingWorkspace);
-      }
-    }
-  }
+         //requiredWorkspaces.add(matchingWorkspace);
+  //     }
+  //   }
+  // }
 
   // remove any workspace that isn't a dependency, iterate in reverse so we can splice it
   for (let i = project.workspaces.length - 1; i >= 0; i--) {
