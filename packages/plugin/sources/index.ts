@@ -5,7 +5,6 @@ import {
   Configuration,
   Cache,
   Workspace,
-  Manifest,
   StreamReport,
   ThrowReport,
 } from "@yarnpkg/core";
@@ -13,7 +12,6 @@ import { getPluginConfiguration } from "@yarnpkg/cli";
 
 import * as fs from "fs";
 import * as path from "path";
-import chalk from "chalk";
 
 const createLockfile = async (
   configuration: Configuration,
@@ -31,7 +29,7 @@ const createLockfile = async (
   // iterating over it (because they're added at the end)
 
   // DISABLED:
-  
+
   // for (const workspace of requiredWorkspaces) {
   //   for (const dependencyType of Manifest.hardDependencies) {
   //     for (const descriptor of workspace.manifest
@@ -41,7 +39,7 @@ const createLockfile = async (
 
   //       if (matchingWorkspace === null) continue;
 
-         //requiredWorkspaces.add(matchingWorkspace);
+  //requiredWorkspaces.add(matchingWorkspace);
   //     }
   //   }
   // }
@@ -78,6 +76,8 @@ const createLockfile = async (
   return project.generateLockfile();
 };
 
+const green = (text: string) => `\x1b[32m${text}\x1b[0m`;
+
 const plugin: Plugin<Hooks> = {
   hooks: {
     afterAllInstalled: async (project) => {
@@ -100,7 +100,7 @@ const plugin: Plugin<Hooks> = {
               lockPath,
               await createLockfile(configuration, workspace)
             );
-            report.reportInfo(null, `${chalk.green(`✓`)} Wrote ${lockPath}`);
+            report.reportInfo(null, `${green(`✓`)} Wrote ${lockPath}`);
           }
         }
       );

@@ -3800,9 +3800,6 @@ typescript@4.1.0-beta:
     "@yarnpkg/builder": ^2.1.2
     "@yarnpkg/cli": ^2.3.0
     "@yarnpkg/core": ^2.3.0
-    "@yarnpkg/fslib": ^2.3.0
-    chalk: ^4.1.0
-    clipanion: ^2.6.2
     typescript: 4.1.0-beta
   languageName: unknown
   linkType: soft

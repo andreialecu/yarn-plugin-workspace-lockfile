@@ -1,4 +1,4 @@
-# yarn-plugin-perworkspace-lockfile
+# yarn-plugin-workspace-lockfile
 
 **EXPERIMENTAL!**
 
