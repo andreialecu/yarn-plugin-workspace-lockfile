@@ -98,7 +98,7 @@ const plugin: Plugin<Hooks> = {
               "yarn.lock-workspace" as Filename
             );
 
-            xfs.writeFilePromise(
+            await xfs.writeFilePromise(
               lockPath,
               await createLockfile(configuration, workspace)
             );

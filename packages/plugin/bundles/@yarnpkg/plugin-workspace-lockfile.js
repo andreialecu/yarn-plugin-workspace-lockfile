@@ -89,12 +89,11 @@ const plugin = {
         stdout: process.stdout,
         includeLogs: true
       }, async report => {
-        const promises = project.workspaces.map(async workspace => {
+        for (const workspace of project.workspaces) {
           const lockPath = _yarnpkg_fslib__WEBPACK_IMPORTED_MODULE_2__.ppath.join(workspace.cwd, "yarn.lock-workspace");
           await _yarnpkg_fslib__WEBPACK_IMPORTED_MODULE_2__.xfs.writeFilePromise(lockPath, await createLockfile(configuration, workspace));
           report.reportInfo(null, `${green(`✓`)} Wrote ${lockPath}`);
-        });
-        await Promise.all(promises);
+        }
       });
     }
   }
