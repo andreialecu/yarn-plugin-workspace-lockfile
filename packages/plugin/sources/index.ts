@@ -10,8 +10,7 @@ import {
 } from "@yarnpkg/core";
 import { getPluginConfiguration } from "@yarnpkg/cli";
 
-import * as fs from "fs";
-import * as path from "path";
+import { xfs, ppath, Filename } from "@yarnpkg/fslib";
 
 const createLockfile = async (
   configuration: Configuration,
@@ -94,9 +93,12 @@ const plugin: Plugin<Hooks> = {
         },
         async (report: StreamReport) => {
           for (const workspace of project.workspaces) {
-            const lockPath = path.join(workspace.cwd, "yarn.lock-workspace");
+            const lockPath = ppath.join(
+              workspace.cwd,
+              "yarn.lock-workspace" as Filename
+            );
 
-            fs.writeFileSync(
+            xfs.writeFilePromise(
               lockPath,
               await createLockfile(configuration, workspace)
             );
