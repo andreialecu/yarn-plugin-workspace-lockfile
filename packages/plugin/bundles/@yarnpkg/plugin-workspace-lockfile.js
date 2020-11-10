@@ -17,11 +17,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _yarnpkg_core__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_yarnpkg_core__WEBPACK_IMPORTED_MODULE_0__);
 /* harmony import */ var _yarnpkg_cli__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(2);
 /* harmony import */ var _yarnpkg_cli__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(_yarnpkg_cli__WEBPACK_IMPORTED_MODULE_1__);
-/* harmony import */ var fs__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(3);
-/* harmony import */ var fs__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(fs__WEBPACK_IMPORTED_MODULE_2__);
-/* harmony import */ var path__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(4);
-/* harmony import */ var path__WEBPACK_IMPORTED_MODULE_3___default = /*#__PURE__*/__webpack_require__.n(path__WEBPACK_IMPORTED_MODULE_3__);
-
+/* harmony import */ var _yarnpkg_fslib__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(3);
+/* harmony import */ var _yarnpkg_fslib__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(_yarnpkg_fslib__WEBPACK_IMPORTED_MODULE_2__);
 
 
 
@@ -92,11 +89,12 @@ const plugin = {
         stdout: process.stdout,
         includeLogs: true
       }, async report => {
-        for (const workspace of project.workspaces) {
-          const lockPath = path__WEBPACK_IMPORTED_MODULE_3__.join(workspace.cwd, "yarn.lock-workspace");
-          fs__WEBPACK_IMPORTED_MODULE_2__.writeFileSync(lockPath, await createLockfile(configuration, workspace));
+        const promises = project.workspaces.map(async workspace => {
+          const lockPath = _yarnpkg_fslib__WEBPACK_IMPORTED_MODULE_2__.ppath.join(workspace.cwd, "yarn.lock-workspace");
+          await _yarnpkg_fslib__WEBPACK_IMPORTED_MODULE_2__.xfs.writeFilePromise(lockPath, await createLockfile(configuration, workspace));
           report.reportInfo(null, `${green(`✓`)} Wrote ${lockPath}`);
-        }
+        });
+        await Promise.all(promises);
       });
     }
   }
@@ -119,13 +117,7 @@ module.exports = require("@yarnpkg/cli");;
 /* 3 */
 /***/ ((module) => {
 
-module.exports = require("fs");;
-
-/***/ }),
-/* 4 */
-/***/ ((module) => {
-
-module.exports = require("path");;
+module.exports = require("@yarnpkg/fslib");;
 
 /***/ })
 /******/ 	]);
