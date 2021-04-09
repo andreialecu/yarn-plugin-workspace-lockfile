@@ -1,5 +1,5 @@
 {
-  "name": "yarn-plugin-workspace-lockfile",
+  "name": "@openagenda/yarn-plugin-workspace-lockfile",
   "main": "./sources/index.ts",
   "dependencies": {
     "@types/node": "^14.14.37",
@@ -10,6 +10,16 @@
     "typescript": "^4.2.4"
   },
   "scripts": {
-    "build:plugin": "builder build plugin --no-minify"
+    "build:plugin": "builder build plugin",
+    "prepack": "run build:plugin"
+  },
+  "publishConfig": {
+    "main": "./bundles/@yarnpkg/plugin-workspace-lockfile.js"
+  },
+  "files": [
+    "/bundles/**/*"
+  ],
+  "engines": {
+    "node": ">=10.19.0"
   }
 }
