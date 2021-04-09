@@ -7,7 +7,10 @@ import {
   Workspace,
   StreamReport,
   ThrowReport,
-} from "@yarnpkg/core";
+  SettingsType,
+  SettingsDefinition,
+  structUtils
+} from '@yarnpkg/core';
 import { getPluginConfiguration } from "@yarnpkg/cli";
 
 import { xfs, ppath, Filename } from "@yarnpkg/fslib";
@@ -78,12 +81,28 @@ const createLockfile = async (
 const green = (text: string) => `\x1b[32m${text}\x1b[0m`;
 
 const plugin: Plugin<Hooks> = {
+  configuration: {
+    workspaceLockfiles: {
+      description: 'List of the workspaces that need a specific lockfile',
+      type: SettingsType.STRING,
+      default: true,
+      isArray: true
+    },
+    workspaceLockfileName: {
+      description: 'Name of the workspaces specific lockfile',
+      type: SettingsType.STRING,
+      default: 'yarn.lock-workspace'
+    }
+  } as {[settingName: string]: SettingsDefinition},
   hooks: {
     afterAllInstalled: async (project) => {
       const configuration = await Configuration.find(
         project.cwd,
         getPluginConfiguration()
       );
+
+      const workspaceLockfiles = configuration.values.get('workspaceLockfiles');
+      const workspaceLockfileName = configuration.values.get('workspaceLockfileName');
 
       await StreamReport.start(
         {
@@ -92,10 +111,14 @@ const plugin: Plugin<Hooks> = {
           includeLogs: true,
         },
         async (report: StreamReport) => {
-          for (const workspace of project.workspaces) {
+          const requiredWorkspaces: Set<Workspace> = Array.isArray(workspaceLockfiles)
+              ? new Set(workspaceLockfiles.map(name => project.getWorkspaceByIdent(structUtils.parseIdent(name))))
+              : new Set(project.workspaces);
+
+          for (const workspace of requiredWorkspaces) {
             const lockPath = ppath.join(
               workspace.cwd,
-              "yarn.lock-workspace" as Filename
+              workspaceLockfileName as Filename
             );
 
             await xfs.writeFilePromise(

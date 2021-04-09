@@ -81,16 +81,33 @@ const createLockfile = async (configuration, {
 const green = text => `\x1b[32m${text}\x1b[0m`;
 
 const plugin = {
+  configuration: {
+    workspaceLockfiles: {
+      description: 'List of the workspaces that need a specific lockfile',
+      type: _yarnpkg_core__WEBPACK_IMPORTED_MODULE_0__.SettingsType.STRING,
+      default: true,
+      isArray: true
+    },
+    workspaceLockfileName: {
+      description: 'Name of the workspaces specific lockfile',
+      type: _yarnpkg_core__WEBPACK_IMPORTED_MODULE_0__.SettingsType.STRING,
+      default: 'yarn.lock-workspace'
+    }
+  },
   hooks: {
     afterAllInstalled: async project => {
       const configuration = await _yarnpkg_core__WEBPACK_IMPORTED_MODULE_0__.Configuration.find(project.cwd, (0,_yarnpkg_cli__WEBPACK_IMPORTED_MODULE_1__.getPluginConfiguration)());
+      const workspaceLockfiles = configuration.values.get('workspaceLockfiles');
+      const workspaceLockfileName = configuration.values.get('workspaceLockfileName');
       await _yarnpkg_core__WEBPACK_IMPORTED_MODULE_0__.StreamReport.start({
         configuration,
         stdout: process.stdout,
         includeLogs: true
       }, async report => {
-        for (const workspace of project.workspaces) {
-          const lockPath = _yarnpkg_fslib__WEBPACK_IMPORTED_MODULE_2__.ppath.join(workspace.cwd, "yarn.lock-workspace");
+        const requiredWorkspaces = Array.isArray(workspaceLockfiles) ? new Set(workspaceLockfiles.map(name => project.getWorkspaceByIdent(_yarnpkg_core__WEBPACK_IMPORTED_MODULE_0__.structUtils.parseIdent(name)))) : new Set(project.workspaces);
+
+        for (const workspace of requiredWorkspaces) {
+          const lockPath = _yarnpkg_fslib__WEBPACK_IMPORTED_MODULE_2__.ppath.join(workspace.cwd, workspaceLockfileName);
           await _yarnpkg_fslib__WEBPACK_IMPORTED_MODULE_2__.xfs.writeFilePromise(lockPath, await createLockfile(configuration, workspace));
           report.reportInfo(null, `${green(`✓`)} Wrote ${lockPath}`);
         }
