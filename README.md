@@ -5,7 +5,7 @@
 ## Usage:
 
 ```
-yarn plugin import https://raw.githubusercontent.com/andreialecu/yarn-plugin-workspace-lockfile/main/packages/plugin/bundles/%40yarnpkg/plugin-workspace-lockfile.js
+yarn plugin import https://unpkg.com/@openagenda/yarn-plugin-workspace-lockfile
 
 yarn install
 ```

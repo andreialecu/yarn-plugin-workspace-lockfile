@@ -9,20 +9,36 @@ import {
   ThrowReport,
   SettingsType,
   SettingsDefinition,
-  structUtils
+  structUtils,
+  Manifest,
+  ProjectLookup
 } from '@yarnpkg/core';
 import { getPluginConfiguration } from "@yarnpkg/cli";
 
 import { xfs, ppath, Filename } from "@yarnpkg/fslib";
 
 const createLockfile = async (
-  configuration: Configuration,
-  { cwd }: Workspace
+  { cwd }: Workspace,
+  // report: StreamReport
 ) => {
-  const { project, workspace } = await Project.find(configuration, cwd);
+  const configuration = await Configuration.find(
+      cwd,
+      getPluginConfiguration(),
+      {
+        lookup: ProjectLookup.MANIFEST
+      }
+  );
+
+  configuration.triggerHook = async () => {}
+
+  const { project, workspace: projectWorkspace } = await Project.find(configuration, cwd);
   const cache = await Cache.find(configuration);
 
-  let requiredWorkspaces: Set<Workspace> = new Set([workspace]);
+  await project.restoreInstallState({
+    restoreResolutions: false,
+  });
+
+  let requiredWorkspaces: Set<Workspace> = new Set([projectWorkspace]);
 
   // First we compute the dependency chain to see what workspaces are
   // dependencies of the one we're trying to focus on.
@@ -32,48 +48,52 @@ const createLockfile = async (
 
   // DISABLED:
 
-  // for (const workspace of requiredWorkspaces) {
-  //   for (const dependencyType of Manifest.hardDependencies) {
-  //     for (const descriptor of workspace.manifest
-  //       .getForScope(dependencyType)
-  //       .values()) {
-  //       const matchingWorkspace = project.tryWorkspaceByDescriptor(descriptor);
+  for (const workspace of requiredWorkspaces) {
+    for (const dependencyType of Manifest.hardDependencies) {
+      for (const descriptor of workspace.manifest
+          .getForScope(dependencyType)
+          .values()) {
+        const matchingWorkspace = project.tryWorkspaceByDescriptor(descriptor);
 
-  //       if (matchingWorkspace === null) continue;
+        if (matchingWorkspace === null) continue;
 
-  //requiredWorkspaces.add(matchingWorkspace);
-  //     }
-  //   }
-  // }
-
-  // remove any workspace that isn't a dependency, iterate in reverse so we can splice it
-  for (let i = project.workspaces.length - 1; i >= 0; i--) {
-    const currentWorkspace = project.workspaces[i];
-    if (!requiredWorkspaces.has(currentWorkspace)) {
-      project.workspaces.splice(i, 1);
-    }
-  }
-
-  await project.resolveEverything({
-    cache,
-    report: new ThrowReport(),
-  });
-
-  for (const w of project.workspaces) {
-    const pkg = Array.from(project.originalPackages.values()).find(
-      (p) => p.identHash === w.locator.identHash
-    );
-    if (pkg?.reference.startsWith("workspace:")) {
-      // ensure we replace the path in the lockfile from `workspace:packages/somepath` to `workspace:.`
-      if (w.cwd === cwd) {
-        pkg.reference = `workspace:.`;
-
-        Array.from(project.storedDescriptors.values()).find(
-          (v) => v.identHash === pkg.identHash
-        ).range = `workspace:.`;
+        requiredWorkspaces.add(matchingWorkspace);
       }
     }
   }
+
+  // remove any workspace that isn't a dependency, iterate in reverse so we can splice it
+  // for (const workspace of project.workspaces) {
+  //   if (!requiredWorkspaces.has(workspace)) {
+  //     workspace.manifest.dependencies.clear();
+  //     workspace.manifest.devDependencies.clear();
+  //     workspace.manifest.peerDependencies.clear();
+  //     workspace.manifest.scripts.clear();
+  //   }
+  // }
+
+  await project.install({
+    // lockfileOnly: true,
+    cache,
+    report: new ThrowReport(),
+    persistProject: false
+  });
+
+  // for (const w of project.workspaces) {
+  //   const pkg = Array.from(project.originalPackages.values()).find(
+  //     (p) => p.identHash === w.locator.identHash
+  //   );
+  //   if (pkg?.reference.startsWith("workspace:")) {
+  //     // ensure we replace the path in the lockfile from `workspace:packages/somepath` to `workspace:.`
+  //     if (w.cwd === cwd) {
+  //       pkg.reference = `workspace:.`;
+  //
+  //       Array.from(project.storedDescriptors.values()).find(
+  //         (v) => v.identHash === pkg.identHash
+  //       ).range = `workspace:.`;
+  //     }
+  //   }
+  // }
 
   return project.generateLockfile();
 };
@@ -123,8 +143,9 @@ const plugin: Plugin<Hooks> = {
 
             await xfs.writeFilePromise(
               lockPath,
-              await createLockfile(configuration, workspace)
+              await createLockfile(workspace)
             );
+
             report.reportInfo(null, `${green(`✓`)} Wrote ${lockPath}`);
           }
         }
