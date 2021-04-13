@@ -29,14 +29,13 @@ const createLockfile = async (
       }
   );
 
-  configuration.triggerHook = async () => {}
+  // Force global cache (https://github.com/yarnpkg/berry/issues/2748)
+  configuration.values.set('cacheFolder', `${configuration.get('globalFolder')}/cache`);
+  configuration.values.set('enableMirror', true);
+  configuration.values.set('enableGlobalCache', true);
 
-  const { project, workspace: projectWorkspace } = await Project.find(configuration, cwd);
   const cache = await Cache.find(configuration);
-
-  await project.restoreInstallState({
-    restoreResolutions: false,
-  });
+  const { project, workspace: projectWorkspace } = await Project.find(configuration, cwd);
 
   let requiredWorkspaces: Set<Workspace> = new Set([projectWorkspace]);
 
@@ -45,8 +44,6 @@ const createLockfile = async (
   //
   // Note: remember that new elements can be added in a set even while
   // iterating over it (because they're added at the end)
-
-  // DISABLED:
 
   for (const workspace of requiredWorkspaces) {
     for (const dependencyType of Manifest.hardDependencies) {
@@ -62,21 +59,14 @@ const createLockfile = async (
     }
   }
 
-  // remove any workspace that isn't a dependency, iterate in reverse so we can splice it
-  // for (const workspace of project.workspaces) {
-  //   if (!requiredWorkspaces.has(workspace)) {
-  //     workspace.manifest.dependencies.clear();
-  //     workspace.manifest.devDependencies.clear();
-  //     workspace.manifest.peerDependencies.clear();
-  //     workspace.manifest.scripts.clear();
-  //   }
-  // }
-
-  await project.install({
-    // lockfileOnly: true,
+  await project.resolveEverything({
     cache,
-    report: new ThrowReport(),
-    persistProject: false
+    report: new ThrowReport()
+  });
+
+  await project.fetchEverything({
+    cache,
+    report: new ThrowReport()
   });
 
   // for (const w of project.workspaces) {
