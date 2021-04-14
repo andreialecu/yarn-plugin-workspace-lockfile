@@ -68,22 +68,6 @@ const createLockfile = async (
     report: new ThrowReport()
   });
 
-  // for (const w of project.workspaces) {
-  //   const pkg = Array.from(project.originalPackages.values()).find(
-  //     (p) => p.identHash === w.locator.identHash
-  //   );
-  //   if (pkg?.reference.startsWith("workspace:")) {
-  //     // ensure we replace the path in the lockfile from `workspace:packages/somepath` to `workspace:.`
-  //     if (w.cwd === cwd) {
-  //       pkg.reference = `workspace:.`;
-  //
-  //       Array.from(project.storedDescriptors.values()).find(
-  //         (v) => v.identHash === pkg.identHash
-  //       ).range = `workspace:.`;
-  //     }
-  //   }
-  // }
-
   return project.generateLockfile();
 };
 
