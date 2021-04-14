@@ -30,11 +30,6 @@ const createLockfile = async (
       }
   );
 
-  // Force global cache (https://github.com/yarnpkg/berry/issues/2748)
-  configuration.values.set('cacheFolder', `${configuration.get('globalFolder')}/cache`);
-  configuration.values.set('enableMirror', true);
-  configuration.values.set('enableGlobalCache', true);
-
   const cache = await Cache.find(configuration);
   const { project, workspace: projectWorkspace } = await Project.find(configuration, cwd);
 
