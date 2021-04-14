@@ -18,6 +18,7 @@ import { getPluginConfiguration } from "@yarnpkg/cli";
 import { xfs, ppath, Filename } from "@yarnpkg/fslib";
 
 const createLockfile = async (
+  rootProject: Project,
   { cwd }: Workspace,
   // report: StreamReport
 ) => {
@@ -37,7 +38,10 @@ const createLockfile = async (
   const cache = await Cache.find(configuration);
   const { project, workspace: projectWorkspace } = await Project.find(configuration, cwd);
 
-  let requiredWorkspaces: Set<Workspace> = new Set([projectWorkspace]);
+  project.originalPackages = new Map(rootProject.originalPackages);
+  project.storedResolutions = new Map(rootProject.storedResolutions);
+
+  const requiredWorkspaces: Set<Workspace> = new Set([projectWorkspace]);
 
   // First we compute the dependency chain to see what workspaces are
   // dependencies of the one we're trying to focus on.
@@ -133,7 +137,7 @@ const plugin: Plugin<Hooks> = {
 
             await xfs.writeFilePromise(
               lockPath,
-              await createLockfile(workspace)
+              await createLockfile(project, workspace)
             );
 
             report.reportInfo(null, `${green(`✓`)} Wrote ${lockPath}`);
