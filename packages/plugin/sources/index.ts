@@ -81,7 +81,7 @@ const plugin: Plugin<Hooks> = {
       default: true,
       isArray: true
     },
-    workspaceLockfileName: {
+    workspaceLockfileFilename: {
       description: 'Name of the workspaces specific lockfile',
       type: SettingsType.STRING,
       default: 'yarn.lock-workspace'
@@ -95,7 +95,7 @@ const plugin: Plugin<Hooks> = {
       );
 
       const workspaceLockfiles = configuration.values.get('workspaceLockfiles');
-      const workspaceLockfileName = configuration.values.get('workspaceLockfileName');
+      const workspaceLockfileFilename = configuration.values.get('workspaceLockfileFilename');
 
       await StreamReport.start(
         {
@@ -111,7 +111,7 @@ const plugin: Plugin<Hooks> = {
           for (const workspace of requiredWorkspaces) {
             const lockPath = ppath.join(
               workspace.cwd,
-              workspaceLockfileName as Filename
+              workspaceLockfileFilename as Filename
             );
 
             await xfs.writeFilePromise(
