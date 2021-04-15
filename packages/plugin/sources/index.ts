@@ -5,13 +5,13 @@ import {
   Configuration,
   Cache,
   Workspace,
-  StreamReport,
   ThrowReport,
   SettingsType,
   SettingsDefinition,
   structUtils,
   Manifest,
-  ProjectLookup
+  ProjectLookup,
+  MessageName
 } from '@yarnpkg/core';
 import { getPluginConfiguration } from "@yarnpkg/cli";
 
@@ -23,11 +23,11 @@ const createLockfile = async (
   // report: StreamReport
 ) => {
   const configuration = await Configuration.find(
-      cwd,
-      getPluginConfiguration(),
-      {
-        lookup: ProjectLookup.MANIFEST
-      }
+    cwd,
+    getPluginConfiguration(),
+    {
+      lookup: ProjectLookup.MANIFEST
+    }
   );
 
   const cache = await Cache.find(configuration);
@@ -88,41 +88,27 @@ const plugin: Plugin<Hooks> = {
     }
   } as {[settingName: string]: SettingsDefinition},
   hooks: {
-    afterAllInstalled: async (project) => {
-      const configuration = await Configuration.find(
-        project.cwd,
-        getPluginConfiguration()
-      );
+    afterAllInstalled: async (project, opts) => {
+      const workspaceLockfiles = project.configuration.values.get('workspaceLockfiles');
+      const workspaceLockfileFilename = project.configuration.values.get('workspaceLockfileFilename');
 
-      const workspaceLockfiles = configuration.values.get('workspaceLockfiles');
-      const workspaceLockfileFilename = configuration.values.get('workspaceLockfileFilename');
+      const requiredWorkspaces: Set<Workspace> = Array.isArray(workspaceLockfiles)
+        ? new Set(workspaceLockfiles.map(name => project.getWorkspaceByIdent(structUtils.parseIdent(name))))
+        : new Set(project.workspaces);
 
-      await StreamReport.start(
-        {
-          configuration,
-          stdout: process.stdout,
-          includeLogs: true,
-        },
-        async (report: StreamReport) => {
-          const requiredWorkspaces: Set<Workspace> = Array.isArray(workspaceLockfiles)
-              ? new Set(workspaceLockfiles.map(name => project.getWorkspaceByIdent(structUtils.parseIdent(name))))
-              : new Set(project.workspaces);
+      for (const workspace of requiredWorkspaces) {
+        const lockPath = ppath.join(
+          workspace.cwd,
+          workspaceLockfileFilename as Filename
+        );
 
-          for (const workspace of requiredWorkspaces) {
-            const lockPath = ppath.join(
-              workspace.cwd,
-              workspaceLockfileFilename as Filename
-            );
+        await xfs.writeFilePromise(
+          lockPath,
+          await createLockfile(project, workspace)
+        );
 
-            await xfs.writeFilePromise(
-              lockPath,
-              await createLockfile(project, workspace)
-            );
-
-            report.reportInfo(null, `${green(`✓`)} Wrote ${lockPath}`);
-          }
-        }
-      );
+        opts.report.reportInfo(null, `${green(`✓`)} Wrote ${lockPath}`);
+      }
     },
   },
 };
