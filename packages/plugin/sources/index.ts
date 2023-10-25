@@ -10,11 +10,9 @@ import {
   SettingsDefinition,
   structUtils,
   Manifest,
-  ProjectLookup,
-  MessageName
+  InstallOptions,
 } from '@yarnpkg/core';
 import { getPluginConfiguration } from "@yarnpkg/cli";
-
 import { xfs, ppath, Filename } from "@yarnpkg/fslib";
 
 const createLockfile = async (
@@ -25,9 +23,6 @@ const createLockfile = async (
   const configuration = await Configuration.find(
     cwd,
     getPluginConfiguration(),
-    {
-      lookup: ProjectLookup.MANIFEST
-    }
   );
 
   const cache = await Cache.find(configuration);
@@ -88,7 +83,7 @@ const plugin: Plugin<Hooks> = {
     }
   } as {[settingName: string]: SettingsDefinition},
   hooks: {
-    afterAllInstalled: async (project, opts) => {
+    afterAllInstalled: async (project: Project, options: InstallOptions) => {
       const workspaceLockfiles = project.configuration.values.get('workspaceLockfiles');
       const workspaceLockfileFilename = project.configuration.values.get('workspaceLockfileFilename');
 
@@ -97,17 +92,20 @@ const plugin: Plugin<Hooks> = {
         : new Set(project.workspaces);
 
       for (const workspace of requiredWorkspaces) {
-        const lockPath = ppath.join(
-          workspace.cwd,
-          workspaceLockfileFilename as Filename
-        );
+        const workspaceLockPath = ppath.join(workspace.cwd, workspaceLockfileFilename);
+        const lockPath = ppath.join(workspace.cwd, Filename.lockfile);
+
+        // Yarn v4 need a `yarn.lock`
+        await xfs.renamePromise(workspaceLockPath, lockPath);
 
         await xfs.writeFilePromise(
           lockPath,
           await createLockfile(project, workspace)
         );
 
-        opts.report.reportInfo(null, `${green(`✓`)} Wrote ${lockPath}`);
+        await xfs.renamePromise(lockPath, workspaceLockPath);
+
+        options.report.reportInfo(null, `${green(`✓`)} Wrote ${workspaceLockPath}`);
       }
     },
   },
