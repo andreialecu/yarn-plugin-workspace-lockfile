@@ -5,21 +5,33 @@ import {
   Configuration,
   Cache,
   Workspace,
-  StreamReport,
   ThrowReport,
-} from "@yarnpkg/core";
+  SettingsType,
+  SettingsDefinition,
+  structUtils,
+  Manifest,
+  InstallOptions,
+} from '@yarnpkg/core';
 import { getPluginConfiguration } from "@yarnpkg/cli";
-
 import { xfs, ppath, Filename } from "@yarnpkg/fslib";
 
 const createLockfile = async (
-  configuration: Configuration,
-  { cwd }: Workspace
+  rootProject: Project,
+  { cwd }: Workspace,
+  // report: StreamReport
 ) => {
-  const { project, workspace } = await Project.find(configuration, cwd);
-  const cache = await Cache.find(configuration);
+  const configuration = await Configuration.find(
+    cwd,
+    getPluginConfiguration(),
+  );
 
-  let requiredWorkspaces: Set<Workspace> = new Set([workspace]);
+  const cache = await Cache.find(configuration);
+  const { project, workspace: projectWorkspace } = await Project.find(configuration, cwd);
+
+  project.originalPackages = new Map(rootProject.originalPackages);
+  project.storedResolutions = new Map(rootProject.storedResolutions);
+
+  const requiredWorkspaces: Set<Workspace> = new Set([projectWorkspace]);
 
   // First we compute the dependency chain to see what workspaces are
   // dependencies of the one we're trying to focus on.
@@ -27,50 +39,29 @@ const createLockfile = async (
   // Note: remember that new elements can be added in a set even while
   // iterating over it (because they're added at the end)
 
-  // DISABLED:
+  for (const workspace of requiredWorkspaces) {
+    for (const dependencyType of Manifest.hardDependencies) {
+      for (const descriptor of workspace.manifest
+          .getForScope(dependencyType)
+          .values()) {
+        const matchingWorkspace = project.tryWorkspaceByDescriptor(descriptor);
 
-  // for (const workspace of requiredWorkspaces) {
-  //   for (const dependencyType of Manifest.hardDependencies) {
-  //     for (const descriptor of workspace.manifest
-  //       .getForScope(dependencyType)
-  //       .values()) {
-  //       const matchingWorkspace = project.tryWorkspaceByDescriptor(descriptor);
+        if (matchingWorkspace === null) continue;
 
-  //       if (matchingWorkspace === null) continue;
-
-  //requiredWorkspaces.add(matchingWorkspace);
-  //     }
-  //   }
-  // }
-
-  // remove any workspace that isn't a dependency, iterate in reverse so we can splice it
-  for (let i = project.workspaces.length - 1; i >= 0; i--) {
-    const currentWorkspace = project.workspaces[i];
-    if (!requiredWorkspaces.has(currentWorkspace)) {
-      project.workspaces.splice(i, 1);
+        requiredWorkspaces.add(matchingWorkspace);
+      }
     }
   }
 
   await project.resolveEverything({
     cache,
-    report: new ThrowReport(),
+    report: new ThrowReport()
   });
 
-  for (const w of project.workspaces) {
-    const pkg = Array.from(project.originalPackages.values()).find(
-      (p) => p.identHash === w.locator.identHash
-    );
-    if (pkg?.reference.startsWith("workspace:")) {
-      // ensure we replace the path in the lockfile from `workspace:packages/somepath` to `workspace:.`
-      if (w.cwd === cwd) {
-        pkg.reference = `workspace:.`;
-
-        Array.from(project.storedDescriptors.values()).find(
-          (v) => v.identHash === pkg.identHash
-        ).range = `workspace:.`;
-      }
-    }
-  }
+  await project.fetchEverything({
+    cache,
+    report: new ThrowReport()
+  });
 
   return project.generateLockfile();
 };
@@ -78,34 +69,44 @@ const createLockfile = async (
 const green = (text: string) => `\x1b[32m${text}\x1b[0m`;
 
 const plugin: Plugin<Hooks> = {
+  configuration: {
+    workspaceLockfiles: {
+      description: 'List of the workspaces that need a specific lockfile',
+      type: SettingsType.STRING,
+      default: true,
+      isArray: true
+    },
+    workspaceLockfileFilename: {
+      description: 'Name of the workspaces specific lockfile',
+      type: SettingsType.STRING,
+      default: 'yarn.lock-workspace'
+    }
+  } as {[settingName: string]: SettingsDefinition},
   hooks: {
-    afterAllInstalled: async (project) => {
-      const configuration = await Configuration.find(
-        project.cwd,
-        getPluginConfiguration()
-      );
+    afterAllInstalled: async (project: Project, options: InstallOptions) => {
+      const workspaceLockfiles = project.configuration.values.get('workspaceLockfiles');
+      const workspaceLockfileFilename = project.configuration.values.get('workspaceLockfileFilename');
 
-      await StreamReport.start(
-        {
-          configuration,
-          stdout: process.stdout,
-          includeLogs: true,
-        },
-        async (report: StreamReport) => {
-          for (const workspace of project.workspaces) {
-            const lockPath = ppath.join(
-              workspace.cwd,
-              "yarn.lock-workspace" as Filename
-            );
+      const requiredWorkspaces: Set<Workspace> = Array.isArray(workspaceLockfiles)
+        ? new Set(workspaceLockfiles.map(name => project.getWorkspaceByIdent(structUtils.parseIdent(name))))
+        : new Set(project.workspaces);
 
-            await xfs.writeFilePromise(
-              lockPath,
-              await createLockfile(configuration, workspace)
-            );
-            report.reportInfo(null, `${green(`✓`)} Wrote ${lockPath}`);
-          }
-        }
-      );
+      for (const workspace of requiredWorkspaces) {
+        const workspaceLockPath = ppath.join(workspace.cwd, workspaceLockfileFilename);
+        const lockPath = ppath.join(workspace.cwd, Filename.lockfile);
+
+        // Yarn v4 need a `yarn.lock`
+        await xfs.renamePromise(workspaceLockPath, lockPath);
+
+        await xfs.writeFilePromise(
+          lockPath,
+          await createLockfile(project, workspace)
+        );
+
+        await xfs.renamePromise(lockPath, workspaceLockPath);
+
+        options.report.reportInfo(null, `${green(`✓`)} Wrote ${workspaceLockPath}`);
+      }
     },
   },
 };
